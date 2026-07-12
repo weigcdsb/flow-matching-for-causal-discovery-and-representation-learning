@@ -20,7 +20,7 @@ Core idea: similar to simulation-based inference.
 
 In short, 1) the particles give a very rough (via mixture model with rough likelihood) and noisy (good for exploration) approximated samples around posterior of $(G, H)$ given $x$, and 2) FM is trained based on simulator generated $(G, H, x_{\text{sim}})$. The resulting FM should be relatively good for generalization.
 
-The ``1_causal_discovery_flow.ipynb`` is a simulation example.
+The ``01_causal_discovery_flow.ipynb`` is a simulation example.
 1. data (train/ test splitted): 5-D $x$ from a mixture of 2 graph $G_1$ and $G_2$
 2. figures: generated $(G, H)$ given $x_{\text{test}}$
    - distribution of $G$ for truth, particles and FM-generated given $x_{\text{test}}$
@@ -29,6 +29,31 @@ The ``1_causal_discovery_flow.ipynb`` is a simulation example.
    - posterior predictive data: given $x_{\text{test}}$, generate $(G, H)$. Then given $(G, H)$, generate $\tilde{x}$. Compare.
 
 
+
+## 2. dynamic causal representation learning
+
+Now the observations are high-dimensional trajectories $y$, generated from latent causal variables $z$. Each trajectory belongs to one fixed regime,
+
+$$
+(G_r^{lag}, G_r^{inst}, H_r),
+$$
+
+where $G^{inst}$ is a DAG, while $G^{lag}$ can be cyclic across time. Just follow the iCITRIS, but the regime is a mixture in simulation. The regime is on trajectory level and will not change along the time. Moreover, the causal grouping is not learned. (So, this is the simplified iCITRIS)
+
+The ``12_dynamicCRL_2regimes_flow.ipynb`` is a one-stage simulation example with two blocks in each iteration:
+
+1. **particle CRL**: estimate $(z,\phi,\theta)$ and move regime-specific particles $(G_r^{lag},G_r^{inst},H_r)$ using trajectory-level mixture assignments.
+2. **conditional FM**: simulate trajectories from the current particles under all intervention conditions, then fit
+   $$
+   p(G^{lag},G^{inst},H\mid y_{1:L},I).
+   $$
+   We use DeFoG-like discrete FM for $G^{lag}$, DAG-constrained discrete FM for $G^{inst}$, and continuous FM for $H$, with a shared variable-length trajectory encoder.
+
+Simulation:
+- 3 latent causal variables and 40-D observations
+- 2 trajectory-level regimes
+- interventions $I\in\{000,100,010,001\}$, fixed within each trajectory. The mapping to latent causal variable is fixed and singleton, i.e., $I_l \to z_l$
+- independently controlled training and test recording lengths
 
 
 
