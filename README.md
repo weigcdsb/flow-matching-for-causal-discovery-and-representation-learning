@@ -32,22 +32,12 @@ The ``01_causal_discovery_flow.ipynb`` is a simulation example.
 
 ## 2. dynamic causal representation learning
 
-Now the observations are high-dimensional trajectories $y$, generated from latent causal variables $z$. Each trajectory belongs to one fixed regime,
-
-$$
-(G_r^{lag}, G_r^{inst}, H_r),
-$$
-
-where $G^{inst}$ is a DAG, while $G^{lag}$ can be cyclic across time. Just follow the iCITRIS, but the regime is a mixture in simulation. The regime is on trajectory level and will not change along the time. Moreover, the causal grouping is not learned. (So, this is the simplified iCITRIS)
+Now the observations are high-dimensional trajectories $y_{it}$, generated from latent causal variables $z_{it}$. Each trajectory belongs to one fixed regime, $(G_{c_i}^{lag}, G_{c_i}^{inst}, H_{c_i})$, where $c_i = \{1,2\}$ is regime label, $G^{inst}$ is a DAG and $G^{lag}$ can be cyclic across time. Just follow the iCITRIS, but the regime is a mixture in simulation. The regime is on trajectory level and will not change along the time. Moreover, the causal grouping is not learned. (So, this is based on the simplified iCITRIS)
 
 The ``12_dynamicCRL_2regimes_flow.ipynb`` is a one-stage simulation example with two blocks in each iteration:
 
-1. **particle CRL**: estimate $(z,\phi,\theta)$ and move regime-specific particles $(G_r^{lag},G_r^{inst},H_r)$ using trajectory-level mixture assignments.
-2. **conditional FM**: simulate trajectories from the current particles under all intervention conditions, then fit
-   $$
-   p(G^{lag},G^{inst},H\mid y_{1:L},I).
-   $$
-   We use DeFoG-like discrete FM for $G^{lag}$, DAG-constrained discrete FM for $G^{inst}$, and continuous FM for $H$, with a shared variable-length trajectory encoder.
+1. **particle CRL**: estimate $(z_{it},\phi,\theta)$ and move regime-specific particles $(G_r^{lag},G_r^{inst},H_r)$ for $r=1,2,3,...$ using trajectory-level mixture assignments.
+2. **conditional FM**: simulate trajectories $y_{1:L}$ from the current particles under all intervention conditions, then fit $p(G^{lag},G^{inst},H\mid y_{1:L},I)$. We use DeFoG-like discrete FM for $G^{lag}$, DAG-constrained discrete FM for $G^{inst}$, and continuous FM for $H$, with a shared variable-length trajectory encoder. The covariates $y_{1:L},I$ is encoded by a neural net to handle the varying length of recording, especially differences between trainining and testing. 
 
 Simulation:
 - 3 latent causal variables and 40-D observations
