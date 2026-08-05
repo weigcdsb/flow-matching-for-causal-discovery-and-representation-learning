@@ -1,4 +1,3 @@
-
 # Flow Matching for Causal Discovery and Representation Learning
 
 Using **conditional flow matching** as an amortized posterior sampler over causal graphs and mechanism parameters.
@@ -7,7 +6,7 @@ The repository currently contains two related proof-of-concept projects:
 
 1. **Observed-variable causal discovery:** $q_\theta(G,H\mid X)\approx p(G,H\mid X)$, where $G$ is a directed acyclic graph and $H$ contains continuous mechanism parameters.
 
-2. **Dynamic causal representation learning:** $q_\theta\!\left(G^{\mathrm{lag}},G^{\mathrm{inst}},H\mid Y_{1:L},I\right)$, where high-dimensional trajectories $Y_{1:L}$ are generated from latent causal variables ($L = $ recording length), $I$ denotes a intervention condition (**static and hard now, to be update later**), $G^{\mathrm{lag}}$ represents lagged causal relations, and $G^{\mathrm{inst}}$ is an instantaneous DAG.
+2. **Dynamic causal representation learning:** $q_\theta\left(G^{\mathrm{lag}},G^{\mathrm{inst}},H\mid Y_{1:L},I\right)$, where high-dimensional trajectories $Y_{1:L}$ are generated from latent causal variables ($L =$ recording length), $I$ denotes a intervention condition (**static and hard now, to be update later**), $G^{\mathrm{lag}}$ represents lagged causal relations, and $G^{\mathrm{inst}}$ is an instantaneous DAG.
 
 
 ## Motivation
@@ -37,6 +36,7 @@ Simulation-based inference (SBI):
 
 2. **Simulate conditional training data.**  
    Generate synthetic observations from the current particles:
+
    - $(G,H)\longrightarrow X_{\mathrm{sim}}$ for the causal discovery task;
    - $(G^{\mathrm{lag}},G^{\mathrm{inst}},H,I)\longrightarrow Y_{1:L}^{\mathrm{sim}}$ for the causal representation learning task.
 
@@ -70,13 +70,7 @@ The high-dimensional trajectories $Y_{1:L}$ is generated from lower-dimensional 
 For a non-intervened latent variable $j$, the simulator and fitted particle models use nonlinear autoregressive mechanisms of the form
 
 $$
-\begin{aligned}
-z_{t,j}
-&= b_j + a_j z_{t-1,j} \\
-&\quad + \sum_k G^{\mathrm{lag}}_{kj}\beta_{kj}\tanh(z_{t-1,k}) \\
-&\quad + \sum_k G^{\mathrm{inst}}_{kj}\gamma_{kj}\tanh(z_{t,k})
-+ \epsilon_{t,j}.
-\end{aligned}
+z_{t,j}=b_j+a_jz_{t-1,j}+\sum_k G^{\mathrm{lag}}_{kj}\beta_{kj}\tanh(z_{t-1,k})+\sum_k G^{\mathrm{inst}}_{kj}\gamma_{kj}\tanh(z_{t,k})+\epsilon_{t,j}.
 $$
 
 A **hard intervention** (need to relax to soft) replaces the corresponding structural mechanism with an intervention distribution (Gaussian). The latent trajectory is mapped to a high-dimensional observation through a noisy nonlinear observation model.
@@ -94,29 +88,20 @@ To handle variable-length time series, a Transformer-based context network compr
 An encoder-decoder learns the latent causal coordinates as $z_t=E_\phi(y_t)$ and $\hat y_t=D_\omega(z_t)$. Motivated by iCITRIS, each observed intervention is assumed to correspond to a 1-D latent coordinate. For particle $k$, the conditional distribution of coordinate $j$ is
 
 $$
-p_k(z_{n,t,j}\mid z_{n,<t},z_{n,t,<j},I_{n,j})
-=
-\begin{cases}
-\mathcal{N}\!\left(\mu_{k,t,j},\sigma_{k,j}^2\right), & I_{n,j}=0,\\
-\mathcal{N}\!\left(m_{k,j}^{\mathrm{int}},(\sigma_{k,j}^{\mathrm{int}})^2\right), & I_{n,j}=1.
-\end{cases}
+p_k(z_{n,t,j}\mid z_{n,<t},z_{n,t,<j},I_{n,j})=\begin{cases}\mathcal{N}\left(\mu_{k,t,j},\sigma_{k,j}^2\right), & I_{n,j}=0,\\ \mathcal{N}\left(m_{k,j}^{\mathrm{int}},(\sigma_{k,j}^{\mathrm{int}})^2\right), & I_{n,j}=1.\end{cases}
 $$
 
 where $\mu_{k,t,j}$ is determined by $(G_k^{\mathrm{lag}},G_k^{\mathrm{inst}},H_k)$ (This is where intervention and causal structure kicks in).
 
-Let $\ell_{nk}=\log p_k(z_{n,1:L}\mid I_n)$ be the resulting trajectory log-likelihood. The regime responsibility is $\gamma_{nk}=\operatorname{softmax}_k\!\left(\log\pi_k+\ell_{nk}/\tau_{\mathrm{resp}}\right)$.
+Let $\ell_{nk}=\log p_k(z_{n,1:L}\mid I_n)$ be the resulting trajectory log-likelihood. The regime responsibility is $\gamma_{nk}=\operatorname{softmax}_k\left(\log\pi_k+\ell_{nk}/\tau_{\mathrm{resp}}\right)$.
 
 The representation is trained using
 
 $$
-\mathcal{L}_{\mathrm{rep}}
-=
-\mathcal{L}_{\mathrm{rec}}
-+
-\beta_{\mathrm{struct}}\mathcal{L}_{\mathrm{struct}},
+\mathcal{L}_{\mathrm{rep}}=\mathcal{L}_{\mathrm{rec}}+\beta_{\mathrm{struct}}\mathcal{L}_{\mathrm{struct}},
 $$
 
-where $\mathcal{L}_{\mathrm{rec}}=\frac{1}{2\sigma_{\mathrm{rec}}^2}\mathbb{E}_{n,t}\!\left[\|D_\omega(E_\phi(y_{n,t}))-y_{n,t}\|_2^2\right]$ and $\mathcal{L}_{\mathrm{struct}}=-\frac{1}{N}\sum_n\sum_k\gamma_{nk}\ell_{nk}$ (This is where intervention and causal structure kicks in). After each representation update, the latent trajectories are re-encoded and the particles are updated by:
+where $\mathcal{L}_{\mathrm{rec}}=\frac{1}{2\sigma_{\mathrm{rec}}^2}\mathbb{E}_{n,t}\left[\|D_\omega(E_\phi(y_{n,t}))-y_{n,t}\|_2^2\right]$ and $\mathcal{L}_{\mathrm{struct}}=-\frac{1}{N}\sum_n\sum_k\gamma_{nk}\ell_{nk}$ (This is where intervention and causal structure kicks in). After each representation update, the latent trajectories are re-encoded and the particles are updated by:
 
 - fitting $H_k$ using responsibility-weighted regression;
 - updating $(G_k^{\mathrm{lag}},G_k^{\mathrm{inst}})$ using local Metropolis-Hastings proposals;
@@ -188,4 +173,3 @@ The active, modular dynamic causal-representation-learning experiment.
 - [Flow Matching for Generative Modeling](https://arxiv.org/abs/2210.02747)
 - [DeFoG: Discrete Flow Matching for Graph Generation](https://proceedings.mlr.press/v267/qin25d.html) (FM for graph)
 - [iCITRIS: Causal Representation Learning for Instantaneous and Temporal Effects in Interactive Systems](https://arxiv.org/abs/2206.06169)
-
