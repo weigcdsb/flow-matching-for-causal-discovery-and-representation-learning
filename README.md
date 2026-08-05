@@ -87,18 +87,18 @@ To handle variable-length time series, a Transformer-based context network compr
 
 An encoder-decoder learns the latent causal coordinates as $z_t=E_\phi(y_t)$ and $\hat y_t=D_\omega(z_t)$. Motivated by iCITRIS, each observed intervention is assumed to correspond to a 1-D latent coordinate. For particle $k$, the conditional distribution of coordinate $j$ is
 
-$$
+```math
 p_k(z_{n,t,j}\mid z_{n,<t},z_{n,t,<j},I_{n,j})
 =
 \begin{cases}
 \mathcal{N}\left(\mu_{k,t,j},\sigma_{k,j}^2\right), & I_{n,j}=0, \cr
 \mathcal{N}\left(m_{k,j}^{\mathrm{int}},(\sigma_{k,j}^{\mathrm{int}})^2\right), & I_{n,j}=1.
 \end{cases}
-$$
+```
 
 where $\mu_{k,t,j}$ is determined by $(G_k^{\mathrm{lag}},G_k^{\mathrm{inst}},H_k)$ (This is where intervention and causal structure kicks in).
 
-Let $\ell_{nk}=\log p_k(z_{n,1:L}\mid I_n)$ be the resulting trajectory log-likelihood. The regime responsibility is $\gamma_{nk}=\mathrm{softmax}_k\left(\log\pi_k+\ell_{nk}/\tau_{\mathrm{resp}}\right)$.
+Let $\ell_{nk}=\log p_k(z_{n,1:L}\mid I_n)$ be the resulting trajectory log-likelihood. The regime responsibility is $`\gamma_{nk}=\mathrm{softmax}_k\left(\log\pi_k+\ell_{nk}/\tau_{\mathrm{resp}}\right)`$.
 
 The representation is trained using
 
@@ -106,7 +106,7 @@ $$
 \mathcal{L}_{\mathrm{rep}}=\mathcal{L}_{\mathrm{rec}}+\beta_{\mathrm{struct}}\mathcal{L}_{\mathrm{struct}},
 $$
 
-where $\mathcal{L}_{\mathrm{rec}}=\frac{1}{2\sigma_{\mathrm{rec}}^2}\mathbb{E}_{n,t}\left[\|D_\omega(E_\phi(y_{n,t}))-y_{n,t}\|_2^2\right]$ and $\mathcal{L}_{\mathrm{struct}}=-\frac{1}{N}\sum_n\sum_k\gamma_{nk}\ell_{nk}$ (This is where intervention and causal structure kicks in). After each representation update, the latent trajectories are re-encoded and the particles are updated by:
+where $`\mathcal{L}_{\mathrm{rec}}=\frac{1}{2\sigma_{\mathrm{rec}}^2}\mathbb{E}_{n,t}\left[\|D_\omega(E_\phi(y_{n,t}))-y_{n,t}\|_2^2\right]`$ and $`\mathcal{L}_{\mathrm{struct}}=-\frac{1}{N}\sum_n\sum_k\gamma_{nk}\ell_{nk}`$ (This is where intervention and causal structure kicks in). After each representation update, the latent trajectories are re-encoded and the particles are updated by:
 
 - fitting $H_k$ using responsibility-weighted regression;
 - updating $(G_k^{\mathrm{lag}},G_k^{\mathrm{inst}})$ using local Metropolis-Hastings proposals;
