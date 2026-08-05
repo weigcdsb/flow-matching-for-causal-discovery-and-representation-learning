@@ -87,14 +87,19 @@ To handle variable-length time series, a Transformer-based context network compr
 
 An encoder-decoder learns the latent causal coordinates as $z_t=E_\phi(y_t)$ and $\hat y_t=D_\omega(z_t)$. Motivated by iCITRIS, each observed intervention is assumed to correspond to a 1-D latent coordinate. For particle $k$, the conditional distribution of coordinate $j$ is
 
-```math
+$$
 p_k(z_{n,t,j}\mid z_{n,<t},z_{n,t,<j},I_{n,j})
 =
-\begin{cases}
-\mathcal{N}\left(\mu_{k,t,j},\sigma_{k,j}^2\right), & I_{n,j}=0, \cr
-\mathcal{N}\left(m_{k,j}^{\mathrm{int}},(\sigma_{k,j}^{\mathrm{int}})^2\right), & I_{n,j}=1.
-\end{cases}
-```
+\mathcal{N}\left(\mu_{k,t,j},\sigma_{k,j}^2\right),
+\qquad I_{n,j}=0.
+$$
+
+$$
+p_k(z_{n,t,j}\mid z_{n,<t},z_{n,t,<j},I_{n,j})
+=
+\mathcal{N}\left(m_{k,j}^{\mathrm{int}},(\sigma_{k,j}^{\mathrm{int}})^2\right),
+\qquad I_{n,j}=1.
+$$
 
 where $\mu_{k,t,j}$ is determined by $(G_k^{\mathrm{lag}},G_k^{\mathrm{inst}},H_k)$ (This is where intervention and causal structure kicks in).
 
