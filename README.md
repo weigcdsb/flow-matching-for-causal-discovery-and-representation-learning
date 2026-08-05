@@ -1,51 +1,201 @@
 # Flow Matching for Causal Discovery and Representation Learning
 
-Just playing around with using flow matching (maybe flow map, an easy upgrade) for causal stuff. We begin with causal discovery. If it seems valuable to push forward, we can move to representation learning, dynamic versions, and intervention versions. For now, we start with causal discovery without intervention.
+Using **conditional flow matching** as an amortized posterior sampler over causal graphs and mechanism parameters.
 
-**Why FM**:
-1. sampling rather than estimation: good for Markov equivalance class (weak identifiability is enough) & multimodality (e.g., mixture causal graph). Also, of course, uncertainty quantification.
-2. high-D causal graph
-3. generalization
+The repository currently contains two related proof-of-concept projects:
 
-## 1. causal discovery
+1. **Observed-variable causal discovery**
+   $$
+   q_\theta(G,H\mid X)\approx p(G,H\mid X),
+   $$
+   where $G$ is a directed acyclic graph and $H$ contains continuous mechanism parameters.
 
-Currently, the causal variables are observed as (x). For causal representation learning, we can add one more encoder-decoder layer to link observations and latent causal variables. The task is to fit a flow-based generative model for $p(G, H \mid x)$, where...
-- $G$: causal graph, DAG
-- $H$: parameters for mechanistic model
-
-Core idea: similar to simulation-based inference. 
-- Given observation $x$, get and move noisy particles $(G, H)$ by rough mixture model (very cheap approximated likelihood). The movement is driven by an EM-like procedure, with noise/ jitters.
-- For each $(G, H)$, generate several $x_{\text{sim}}$ to get training data for FM $(G, H, x_{\text{sim}})$
-- train FM $f(G, H \mid x)$. the network for G and H is shared: H is continuous, and G is a DAG. The FM for DAG is essentially discrete-FM in DAG-constraint space, see details in DeFog (only graph, not DAG, https://openreview.net/forum?id=KPRIwWhqAZ)
-
-In short, 1) the particles give a very rough (via mixture model with rough likelihood) and noisy (good for exploration) approximated samples around posterior of $(G, H)$ given $x$, and 2) FM is trained based on simulator generated $(G, H, x_{\text{sim}})$. The resulting FM should be relatively good for generalization.
-
-The ``01_causal_discovery_flow.ipynb`` is a simulation example.
-1. data (train/ test splitted): 5-D $x$ from a mixture of 2 graph $G_1$ and $G_2$
-2. figures: generated $(G, H)$ given $x_{\text{test}}$
-   - distribution of $G$ for truth, particles and FM-generated given $x_{\text{test}}$
-   - representative generated samples of $G$, given $x_{\text{test}, G_1}$ and $x_{\text{test}, G_2}$
-   - Given $G$, check the distribution of $H$
-   - posterior predictive data: given $x_{\text{test}}$, generate $(G, H)$. Then given $(G, H)$, generate $\tilde{x}$. Compare.
+2. **Dynamic causal representation learning**
+   $$
+   q_\theta\!\left(G^{\mathrm{lag}},G^{\mathrm{inst}},H
+   \mid Y_{1:L},I\right),
+   $$
+   where high-dimensional trajectories $Y_{1:L}$ are generated from latent causal variables ($L = $ recording length), $I$ denotes a intervention condition (**static and hard now, to be update later**), $G^{\mathrm{lag}}$ represents lagged causal relations, and $G^{\mathrm{inst}}$ is an instantaneous DAG.
 
 
+## Motivation
 
-## 2. dynamic causal representation learning
+Causal structure can be weakly identifiable or multimodal. A single point estimate can be bad as it ignores...
 
-Now the observations are high-dimensional trajectories $y_{it}$, generated from latent causal variables $z_{it}$. Each trajectory belongs to one fixed regime, $(G_{c_i}^{lag}, G_{c_i}^{inst}, H_{c_i})$, where $c_i = \{1,2\}$ is regime label, $G^{inst}$ is a DAG and $G^{lag}$ can be cyclic across time. Just follow the iCITRIS, but the regime is a mixture in simulation. The regime is on trajectory level and will not change along the time. Moreover, the causal grouping is not learned. (So, this is based on the simplified iCITRIS)
+- multiple plausible graphs or Markov-equivalent structures;
+- multiple trajectory-level causal regimes;
+- uncertainty in discrete graph structure and continuous mechanisms.
 
-The ``12_dynamicCRL_2regimes_flow.ipynb`` is a one-stage simulation example with two blocks in each iteration:
+The goal here is to learn a conditional generative model that can **sample** plausible causal structures and mechanisms, rather than returning only one estimate.
 
-1. **particle CRL**: estimate $(z_{it},\phi,\theta)$ and move regime-specific particles $(G_r^{lag},G_r^{inst},H_r)$ for $r=1,2,3,...$ using trajectory-level mixture assignments.
-2. **conditional FM**: simulate trajectories $y_{1:L}$ from the current particles under all intervention conditions, then fit $p(G^{lag},G^{inst},H\mid y_{1:L},I)$. We use DeFoG-like discrete FM for $G^{lag}$, DAG-constrained discrete FM for $G^{inst}$, and continuous FM for $H$, with a shared variable-length trajectory encoder. The covariates $y_{1:L},I$ is encoded by a neural net to handle the varying length of recording, especially differences between trainining and testing. 
+Flow matching (FM) is attractive because it provides a common framework for:
 
-Simulation:
-- 3 latent causal variables and 40-D observations
-- 2 trajectory-level regimes
-- interventions $I\in\{000,100,010,001\}$, fixed within each trajectory. The mapping to latent causal variable is fixed and singleton, i.e., $I_l \to z_l$
-- independently controlled training and test recording lengths
+- discrete graph variables;
+- continuous mechanism parameters;
+- posterior sampling and uncertainty quantification;
+- amortized inference for new observations after training (good for generalization).
+
+## Core idea
+
+Simulation-based inference (SBI):
+
+1. **Sample (and move) particles.**  
+   Sample noisy particles $(G,H)$, or regime-specific particles
+   $(G^{\mathrm{lag}},G^{\mathrm{inst}},H)$, using approximate likelihoods,
+   mixture responsibilities, and local graph proposals. (very cheap and rough. Just to obtain sample pair for the following FM step)
+
+2. **Simulate conditional training data.**  
+   Generate synthetic observations from the current particles:
+   - $(G,H)\longrightarrow X_{\mathrm{sim}}$ for the causal discovery task;
+   - $(G^{\mathrm{lag}},G^{\mathrm{inst}},H,I)\longrightarrow Y_{1:L}^{\mathrm{sim}}$ for the causal representation learning task.
+
+3. **Train a conditional flow.**  
+   Learn an amortized map from an observation or recording to a posterior
+   distribution over graphs and mechanisms.
+
+The particles act as an adaptive, approximate teacher. The flow model then
+smooths and amortizes this particle-based approximation.
 
 
 
+## Causal discovery
+
+All causal variables are directly observed. A rough particle approximation first provides candidate graph-mechanism pairs $(G,H)$. These particles are then used to simulate training triples
+
+$$
+(x_{\mathrm{sim}},G,H),
+$$
+
+and a conditional flow is trained to generate
+
+$$
+(G,H)\sim q_\theta(G,H\mid x).
+$$
+
+The notebooks mainly serve as a proof of concept that discrete graph structure and continuous mechanism parameters can be generated jointly with flow matching. See more details in FM for dyanmical CRL.
+
+## Dynamic causal representation learning
+
+The high-dimensional trajectories $Y_{1:L}$ is generated from lower-dimensional latent causal variables $Z_{1:L}$. Each trajectory belongs to one fixed causal regime.
+
+For a non-intervened latent variable $j$, the simulator and fitted particle
+models use nonlinear autoregressive mechanisms of the form
+
+$$
+z_{t,j}
+=
+b_j
++a_j z_{t-1,j}
++\sum_k G^{\mathrm{lag}}_{kj}\beta_{kj}\tanh(z_{t-1,k})
++\sum_k G^{\mathrm{inst}}_{kj}\gamma_{kj}\tanh(z_{t,k})
++\epsilon_{t,j}.
+$$
+
+A **hard intervention** (need to relax to soft) replaces the corresponding structural mechanism with an intervention distribution (Gaussian). The latent trajectory is mapped to a high-dimensional observation through a noisy nonlinear observation model.
+
+### Training stages
+
+#### Stage 0: variable-length recording encoder
+
+To handle variable-length time series, a Transformer-based context network compresses a padded recording and its intervention condition into a fixed-dimensional context $C_\psi(Y_{1:L},I)=c$. The context network is trained through observation reconstruction and then frozen.
+
+#### Stage 1, Block 1: representation learning and particle updates
+
+An encoder-decoder learns the latent causal coordinates as $z_t=E_\phi(y_t)$ and $\hat y_t=D_\omega(z_t)$. Motivated by iCITRIS, each observed intervention is assumed to correspond to a 1-D latent coordinate. For particle $k$, the conditional distribution of coordinate $j$ is
+
+$$
+p_k(z_{n,t,j}\mid z_{n,<t},z_{n,t,<j},I_{n,j})
+=
+\begin{cases}
+\mathcal{N}\!\left(\mu_{k,t,j},\sigma_{k,j}^2\right),
+& I_{n,j}=0,\\
+\mathcal{N}\!\left(m_{k,j}^{\mathrm{int}},(\sigma_{k,j}^{\mathrm{int}})^2\right),
+& I_{n,j}=1,
+\end{cases}
+$$
+
+where $\mu_{k,t,j}$ is determined by $(G_k^{\mathrm{lag}},G_k^{\mathrm{inst}},H_k)$ (This is where intervention and causal structure kicks in).
+
+Let $\ell_{nk}=\log p_k(z_{n,1:L}\mid I_n)$ be the resulting trajectory log-likelihood. The regime responsibility is $\gamma_{nk}=\operatorname{softmax}_k\!\left(\log\pi_k+\ell_{nk}/\tau_{\mathrm{resp}}\right)$.
+
+The representation is trained using
+
+$$
+\mathcal{L}_{\mathrm{rep}}
+=
+\mathcal{L}_{\mathrm{rec}}
++
+\beta_{\mathrm{struct}}\mathcal{L}_{\mathrm{struct}},
+$$
+
+where $\mathcal{L}_{\mathrm{rec}}=\frac{1}{2\sigma_{\mathrm{rec}}^2}\mathbb{E}_{n,t}\!\left[\|D_\omega(E_\phi(y_{n,t}))-y_{n,t}\|_2^2\right]$ and $\mathcal{L}_{\mathrm{struct}}=-\frac{1}{N}\sum_n\sum_k\gamma_{nk}\ell_{nk}$ (This is where intervention and causal structure kicks in). After each representation update, the latent trajectories are re-encoded and the particles are updated by:
+
+- fitting $H_k$ using responsibility-weighted regression;
+- updating $(G_k^{\mathrm{lag}},G_k^{\mathrm{inst}})$ using local Metropolis-Hastings proposals;
+- updating $\gamma_{nk}$ and $\pi_k$;
+- reinitializing persistently empty components.
+
+#### Stage 1, Block 2: coupled graph-and-mechanism flow
+
+The updated particles simulate variable-length recordings under all supported intervention conditions. Conditioned on $c=C_\psi(Y_{1:L},I)$, a shared flow jointly models:
+
+- each lagged edge as a binary variable;
+- each instantaneous pair as one of $\{\text{no edge},\,i\to j,\,j\to i\}$;
+- the mechanism vector $H$ through a continuous velocity field.
+
+During sampling, cycle-forming instantaneous updates are masked, ensuring that $G^{\mathrm{inst}}$ remains a DAG.
 
 
+
+## Repository structure
+
+```text
+.
+├── README.md
+├── discovery/
+│   ├── 00_causal_discovery_check_particle.ipynb
+│   └── 01_causal_discovery_flow.ipynb
+├── dynamic_CRL/
+│   ├── 01_FM_dynamicCRL_hardInt.ipynb
+│   ├── README.md
+│   ├── requirements.txt
+│   ├── sim.py
+│   ├── models.py
+│   ├── particles.py
+│   ├── fm.py
+│   ├── train.py
+│   ├── diagnostics.py
+│   └── utils.py
+└── recycle/
+    ├── 10_dynamicCRL_1regime_particle.ipynb
+    ├── 11_dynamicCRL_2regimes_particle.ipynb
+    └── 12_dynamicCRL_2regimes_flow.ipynb
+```
+
+### `discovery/`
+
+Early observed-variable causal-discovery experiments.
+
+- `00_causal_discovery_check_particle.ipynb`: check the particles.
+- `01_causal_discovery_flow.ipynb`: train flow for
+  $q_\theta(G,H\mid X)$ in a five-dimensional, two-graph simulation.
+
+### `dynamic_CRL/`
+
+The active, modular dynamic causal-representation-learning experiment.
+
+- `01_FM_dynamicCRL_hardInt.ipynb`: notebook for experiment and results display.
+- `sim.py`: simulations.
+- `models.py`: recording encoder (compress $(Y,I)$ into $c$), causal encoder-decoder, and coupled flow network.
+- `particles.py`: everything about particle sampling, including the graph space, mechanism fitting, responsibilities, structural losses, and local particle movement.
+- `fm.py`: everything about Flow Matching, including graph/mechanism representations, particle-based simulation, flow training, and posterior sampling.
+- `train.py`: training.
+- `diagnostics.py`: metrics, summaries, and plots.
+- `utils.py`:graph, padding, time-encoding, and reproducibility utilities.
+
+
+## Related work
+
+- [Flow Matching for Generative Modeling](https://arxiv.org/abs/2210.02747)
+- [DeFoG: Discrete Flow Matching for Graph Generation](https://proceedings.mlr.press/v267/qin25d.html) (FM for graph)
+- [iCITRIS: Causal Representation Learning for Instantaneous and Temporal Effects in Interactive Systems](https://arxiv.org/abs/2206.06169)
