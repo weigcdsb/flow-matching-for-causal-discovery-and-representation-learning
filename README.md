@@ -1,21 +1,13 @@
+
 # Flow Matching for Causal Discovery and Representation Learning
 
 Using **conditional flow matching** as an amortized posterior sampler over causal graphs and mechanism parameters.
 
 The repository currently contains two related proof-of-concept projects:
 
-1. **Observed-variable causal discovery**
-   $$
-   q_\theta(G,H\mid X)\approx p(G,H\mid X),
-   $$
-   where $G$ is a directed acyclic graph and $H$ contains continuous mechanism parameters.
+1. **Observed-variable causal discovery:** $q_\theta(G,H\mid X)\approx p(G,H\mid X)$, where $G$ is a directed acyclic graph and $H$ contains continuous mechanism parameters.
 
-2. **Dynamic causal representation learning**
-   $$
-   q_\theta\!\left(G^{\mathrm{lag}},G^{\mathrm{inst}},H
-   \mid Y_{1:L},I\right),
-   $$
-   where high-dimensional trajectories $Y_{1:L}$ are generated from latent causal variables ($L = $ recording length), $I$ denotes a intervention condition (**static and hard now, to be update later**), $G^{\mathrm{lag}}$ represents lagged causal relations, and $G^{\mathrm{inst}}$ is an instantaneous DAG.
+2. **Dynamic causal representation learning:** $q_\theta\!\left(G^{\mathrm{lag}},G^{\mathrm{inst}},H\mid Y_{1:L},I\right)$, where high-dimensional trajectories $Y_{1:L}$ are generated from latent causal variables ($L = $ recording length), $I$ denotes a intervention condition (**static and hard now, to be update later**), $G^{\mathrm{lag}}$ represents lagged causal relations, and $G^{\mathrm{inst}}$ is an instantaneous DAG.
 
 
 ## Motivation
@@ -35,14 +27,13 @@ Flow matching (FM) is attractive because it provides a common framework for:
 - posterior sampling and uncertainty quantification;
 - amortized inference for new observations after training (good for generalization).
 
+
 ## Core idea
 
 Simulation-based inference (SBI):
 
 1. **Sample (and move) particles.**  
-   Sample noisy particles $(G,H)$, or regime-specific particles
-   $(G^{\mathrm{lag}},G^{\mathrm{inst}},H)$, using approximate likelihoods,
-   mixture responsibilities, and local graph proposals. (very cheap and rough. Just to obtain sample pair for the following FM step)
+   Sample noisy particles $(G,H)$, or regime-specific particles $(G^{\mathrm{lag}},G^{\mathrm{inst}},H)$, using approximate likelihoods, mixture responsibilities, and local graph proposals. (very cheap and rough. Just to obtain sample pair for the following FM step)
 
 2. **Simulate conditional training data.**  
    Generate synthetic observations from the current particles:
@@ -50,12 +41,9 @@ Simulation-based inference (SBI):
    - $(G^{\mathrm{lag}},G^{\mathrm{inst}},H,I)\longrightarrow Y_{1:L}^{\mathrm{sim}}$ for the causal representation learning task.
 
 3. **Train a conditional flow.**  
-   Learn an amortized map from an observation or recording to a posterior
-   distribution over graphs and mechanisms.
+   Learn an amortized map from an observation or recording to a posterior distribution over graphs and mechanisms.
 
-The particles act as an adaptive, approximate teacher. The flow model then
-smooths and amortizes this particle-based approximation.
-
+The particles act as an adaptive, approximate teacher. The flow model then smooths and amortizes this particle-based approximation.
 
 
 ## Causal discovery
@@ -74,30 +62,32 @@ $$
 
 The notebooks mainly serve as a proof of concept that discrete graph structure and continuous mechanism parameters can be generated jointly with flow matching. See more details in FM for dyanmical CRL.
 
+
 ## Dynamic causal representation learning
 
 The high-dimensional trajectories $Y_{1:L}$ is generated from lower-dimensional latent causal variables $Z_{1:L}$. Each trajectory belongs to one fixed causal regime.
 
-For a non-intervened latent variable $j$, the simulator and fitted particle
-models use nonlinear autoregressive mechanisms of the form
+For a non-intervened latent variable $j$, the simulator and fitted particle models use nonlinear autoregressive mechanisms of the form
 
 $$
+\begin{aligned}
 z_{t,j}
-=
-b_j
-+a_j z_{t-1,j}
-+\sum_k G^{\mathrm{lag}}_{kj}\beta_{kj}\tanh(z_{t-1,k})
-+\sum_k G^{\mathrm{inst}}_{kj}\gamma_{kj}\tanh(z_{t,k})
-+\epsilon_{t,j}.
+&= b_j + a_j z_{t-1,j} \\
+&\quad + \sum_k G^{\mathrm{lag}}_{kj}\beta_{kj}\tanh(z_{t-1,k}) \\
+&\quad + \sum_k G^{\mathrm{inst}}_{kj}\gamma_{kj}\tanh(z_{t,k})
++ \epsilon_{t,j}.
+\end{aligned}
 $$
 
 A **hard intervention** (need to relax to soft) replaces the corresponding structural mechanism with an intervention distribution (Gaussian). The latent trajectory is mapped to a high-dimensional observation through a noisy nonlinear observation model.
+
 
 ### Training stages
 
 #### Stage 0: variable-length recording encoder
 
 To handle variable-length time series, a Transformer-based context network compresses a padded recording and its intervention condition into a fixed-dimensional context $C_\psi(Y_{1:L},I)=c$. The context network is trained through observation reconstruction and then frozen.
+
 
 #### Stage 1, Block 1: representation learning and particle updates
 
@@ -107,10 +97,8 @@ $$
 p_k(z_{n,t,j}\mid z_{n,<t},z_{n,t,<j},I_{n,j})
 =
 \begin{cases}
-\mathcal{N}\!\left(\mu_{k,t,j},\sigma_{k,j}^2\right),
-& I_{n,j}=0,\\
-\mathcal{N}\!\left(m_{k,j}^{\mathrm{int}},(\sigma_{k,j}^{\mathrm{int}})^2\right),
-& I_{n,j}=1,
+\mathcal{N}\!\left(\mu_{k,t,j},\sigma_{k,j}^2\right), & I_{n,j}=0,\\
+\mathcal{N}\!\left(m_{k,j}^{\mathrm{int}},(\sigma_{k,j}^{\mathrm{int}})^2\right), & I_{n,j}=1.
 \end{cases}
 $$
 
@@ -135,6 +123,7 @@ where $\mathcal{L}_{\mathrm{rec}}=\frac{1}{2\sigma_{\mathrm{rec}}^2}\mathbb{E}_{
 - updating $\gamma_{nk}$ and $\pi_k$;
 - reinitializing persistently empty components.
 
+
 #### Stage 1, Block 2: coupled graph-and-mechanism flow
 
 The updated particles simulate variable-length recordings under all supported intervention conditions. Conditioned on $c=C_\psi(Y_{1:L},I)$, a shared flow jointly models:
@@ -144,7 +133,6 @@ The updated particles simulate variable-length recordings under all supported in
 - the mechanism vector $H$ through a continuous velocity field.
 
 During sampling, cycle-forming instantaneous updates are masked, ensuring that $G^{\mathrm{inst}}$ remains a DAG.
-
 
 
 ## Repository structure
@@ -172,13 +160,14 @@ During sampling, cycle-forming instantaneous updates are masked, ensuring that $
     └── 12_dynamicCRL_2regimes_flow.ipynb
 ```
 
+
 ### `discovery/`
 
 Early observed-variable causal-discovery experiments.
 
 - `00_causal_discovery_check_particle.ipynb`: check the particles.
-- `01_causal_discovery_flow.ipynb`: train flow for
-  $q_\theta(G,H\mid X)$ in a five-dimensional, two-graph simulation.
+- `01_causal_discovery_flow.ipynb`: train flow for $q_\theta(G,H\mid X)$ in a five-dimensional, two-graph simulation.
+
 
 ### `dynamic_CRL/`
 
@@ -199,3 +188,4 @@ The active, modular dynamic causal-representation-learning experiment.
 - [Flow Matching for Generative Modeling](https://arxiv.org/abs/2210.02747)
 - [DeFoG: Discrete Flow Matching for Graph Generation](https://proceedings.mlr.press/v267/qin25d.html) (FM for graph)
 - [iCITRIS: Causal Representation Learning for Instantaneous and Temporal Effects in Interactive Systems](https://arxiv.org/abs/2206.06169)
+
