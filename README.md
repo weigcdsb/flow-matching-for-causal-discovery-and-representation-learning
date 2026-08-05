@@ -85,21 +85,18 @@ To handle variable-length time series, a Transformer-based context network compr
 
 #### Stage 1, Block 1: representation learning and particle updates
 
-An encoder-decoder learns the latent causal coordinates as $z_t=E_\phi(y_t)$ and $\hat y_t=D_\omega(z_t)$. Motivated by iCITRIS, each observed intervention is assumed to correspond to a 1-D latent coordinate. For particle $k$, the conditional distribution of coordinate $j$ is
+An encoder-decoder learns the latent causal coordinates as $z_t=E_\phi(y_t)$ and $\hat y_t=D_\omega(z_t)$. 
+Motivated by iCITRIS, each observed intervention is assumed to correspond to a 1-D latent coordinate. For particle $k$, the conditional distribution of coordinate $j$ is
 
 $$
-p_k(z_{n,t,j} \mid z_{n,\lt t}, z_{n,t,\lt j}, I_{n,j})
-= \mathcal{N}(\mu_{k,t,j}, \sigma_{k,j}^2),
-\quad I_{n,j}=0.
+p_k\left(z_{n,t,j}\mid z_{n,t-1,j},z_{n,t-1,\mathrm{Pa}_{G_k^{\mathrm{lag}}}(j)},z_{n,t,\mathrm{Pa}_{G_k^{\mathrm{inst}}}(j)},I_{n,j}\right)=\mathcal{N}\left(\mu_{k,t,j},\sigma_{k,j}^2\right),\qquad I_{n,j}=0.
 $$
 
 $$
-p_k(z_{n,t,j} \mid z_{n,\lt t}, z_{n,t,\lt j}, I_{n,j})
-= \mathcal{N}(m_{k,j}^{\mathrm{int}}, (\sigma_{k,j}^{\mathrm{int}})^2),
-\quad I_{n,j}=1.
+p_k\left(z_{n,t,j}\mid I_{n,j}\right)=\mathcal{N}\left(m_{k,j}^{\mathrm{int}},(\sigma_{k,j}^{\mathrm{int}})^2\right),\qquad I_{n,j}=1.
 $$
 
-where $\mu_{k,t,j}$ is determined by $(G_k^{\mathrm{lag}},G_k^{\mathrm{inst}},H_k)$ (This is where intervention and causal structure kicks in).
+Here, $\mu_{k,t,j}$ is determined by $(G_k^{\mathrm{lag}},G_k^{\mathrm{inst}},H_k)$. Thus, both the causal structure and intervention condition enter the structural likelihood.
 
 Let $\ell_{nk}=\log p_k(z_{n,1:L}\mid I_n)$ be the resulting trajectory log-likelihood. The regime responsibility is $`\gamma_{nk}=\mathrm{softmax}_k\left(\log\pi_k+\ell_{nk}/\tau_{\mathrm{resp}}\right)`$.
 
